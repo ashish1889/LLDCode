@@ -1,0 +1,210 @@
+//https://www.youtube.com/watch?v=RljSBrZeJ3w (Java)
+
+/******************************************************************************
+
+Welcome to GDB Online.
+  GDB online is an online compiler and debugger tool for C, C++, Python, PHP, Ruby, 
+  C#, OCaml, VB, Perl, Swift, Prolog, Javascript, Pascal, COBOL, HTML, CSS, JS
+  Code, Compile, Run and Debug online from anywhere in world.
+
+*******************************************************************************/
+#include <stdio.h>
+
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <mutex>
+#include <ctime>
+#include <sstream>
+
+// Log levels
+enum class LogLevel {
+    INFO,
+    WARNING,
+    ERROR
+};
+
+
+
+class LogHandler {
+public:
+    virtual void setNextHandler(LogHandler* handler) = 0;
+    virtual void handleRequest(LogLevel level, const std::string& message) = 0;
+    virtual ~LogHandler() {}
+};
+
+class ConsoleLogHandler : public LogHandler {
+public:
+    void setNextHandler(LogHandler* handler) override {
+        nextHandler = handler;
+    }
+
+    void handleRequest(LogLevel level, const std::string& message) override {
+        if (level == LogLevel::INFO) {
+            std::cout << "Console Info: " << message << std::endl;
+        } else if (nextHandler) {
+            nextHandler->handleRequest(level, message);
+        }
+    }
+
+private:
+    LogHandler* nextHandler = nullptr;
+};
+
+class FileLogHandler : public LogHandler {
+public:
+    FileLogHandler(const std::string& filename) : logFile(filename) {}
+
+    void setNextHandler(LogHandler* handler) override {
+        nextHandler = handler;
+    }
+
+    void handleRequest(LogLevel level, const std::string& message) override {
+        if (level == LogLevel::WARNING || level == LogLevel::ERROR) {
+            logFile << "File: " << message << std::endl;
+        }
+        if (nextHandler) {
+            nextHandler->handleRequest(level, message);
+        }
+    }
+
+private:
+    LogHandler* nextHandler = nullptr;
+    std::ofstream logFile;
+};
+
+class LogObserver {
+public:
+    virtual void update(const std::string& message) = 0;
+    virtual ~LogObserver() {}
+};
+
+class Logger {
+public:
+    static int count1;
+    static Logger& getInstance() {
+        static Logger instance;
+        return instance;
+    }
+
+    void addObserver(LogObserver* observer) {
+        observers.push_back(observer);
+    }
+
+    void setLogFile(const std::string& filename) {
+        std::lock_guard<std::mutex> lock(mutex);
+        logFile.open(filename, std::ios::app);
+    }
+
+    void setLogHandler(LogHandler* handler) {
+        logHandler = handler;
+    }
+
+    void log(LogLevel level, const std::string& message) {
+        std::lock_guard<std::mutex> lock(mutex);
+       // std::string timestamp = getTimestamp();
+        std::string formattedMessage =  message + " count: "+std::to_string(count1);//"[" + timestamp + "] " + message;
+        count1++;
+        logMessage(level, formattedMessage);
+    }
+
+private:
+    Logger() {}
+
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+
+    void logMessage(LogLevel level, const std::string& message) {
+        for (auto observer : observers) {
+            observer->update(message);
+        }
+        if (logHandler) {
+            logHandler->handleRequest(level, message);
+        }
+        if (logFile.is_open()) {
+            logFile << message << std::endl;
+        }
+    }
+
+    std::mutex mutex;
+    std::vector<LogObserver*> observers;
+    std::ofstream logFile;
+    LogHandler* logHandler = nullptr;
+    
+};
+
+ int Logger::count1 = 0;
+
+class ConsoleLogObserver : public LogObserver {
+public:
+    void update(const std::string& message) override {
+        std::cout << "Console Observer: " << message << std::endl;
+    }
+};
+
+class FileLogObserver : public LogObserver {
+public:
+    FileLogObserver(const std::string& filename) : logFile(filename, std::ios::app) {}
+
+    void update(const std::string& message) override {
+        logFile << "File Observer: " << message << std::endl;
+    }
+
+private:
+    std::ofstream logFile;
+};
+
+int main() {
+    Logger& logger = Logger::getInstance();
+
+    // Create log observers
+    ConsoleLogObserver consoleObserver;
+    FileLogObserver fileObserver("log_observer.txt");
+
+    // Register the observers with the logger
+    logger.addObserver(&consoleObserver);
+    logger.addObserver(&fileObserver);
+
+    // Set up the chain of responsibility for log handling
+    ConsoleLogHandler consoleHandler;
+    FileLogHandler fileHandler("log.txt");
+    consoleHandler.setNextHandler(&fileHandler);
+    logger.setLogHandler(&consoleHandler);
+
+    // Log messages with different log levels
+    logger.log(LogLevel::INFO, "This is an informational message.");
+    logger.log(LogLevel::WARNING, "This is a warning message.");
+    logger.log(LogLevel::ERROR, "This is an error message.");
+
+    return 0;
+}
+
+o/p:
+
+in console:
+Console Observer: This is an informational message. count: 0
+Console Info: This is an informational message. count: 0
+Console Observer: This is a warning message. count: 1
+Console Observer: This is an error message. count: 2
+
+in log.txt:
+File: This is a warning message. count: 1
+File: This is an error message. count: 2
+
+
+in log_observer.txt
+File Observer: This is an informational message. count: 0
+File Observer: This is a warning message. count: 1
+File Observer: This is an error message. count: 2
+
+
+In this updated code:
+
+We've introduced a LogLevel enum to categorize log messages into informational, warning, and error levels.
+LogHandler interface is used to create a chain of responsibility for handling log messages based on their levels.
+ConsoleLogHandler and FileLogHandler classes implement the LogHandler interface, allowing them to handle specific log message levels. The chain of responsibility is set up using the setNextHandler method.
+The Logger class is updated to log messages with different log levels and to use the chain of responsibility for message handling.
+Now, the logger can handle log messages based on their log levels and direct them to different observers or log files accordingly.
+
+Logger C++ playlist:
+https://www.youtube.com/playlist?list=PL5Lk2LPoiyAKcw7T-_FB_4BNrWkxfwnus
