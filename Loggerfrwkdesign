@@ -206,5 +206,7 @@ ConsoleLogHandler and FileLogHandler classes implement the LogHandler interface,
 The Logger class is updated to log messages with different log levels and to use the chain of responsibility for message handling.
 Now, the logger can handle log messages based on their log levels and direct them to different observers or log files accordingly.
 
+*****Here in this code console handler redirects all messages to log.txt(next handler i.e. FileLogHandler ) due to which 
+in log.txt only warning and error messages are logged*****
 Logger C++ playlist:
 https://www.youtube.com/playlist?list=PL5Lk2LPoiyAKcw7T-_FB_4BNrWkxfwnus
